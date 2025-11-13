@@ -5,10 +5,12 @@
   <title>Mapa Leaflet con GeoJSON</title>
 
   <!-- Leaflet CSS -->
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin=""/>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
 
   <style>
     html, body {
@@ -18,6 +20,7 @@
     }
     #map {
       height: 100%;
+      width: 100%;
     }
   </style>
 </head>
@@ -25,9 +28,11 @@
   <div id="map"></div>
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-          crossorigin=""></script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
 
   <script>
     // Crear mapa centrado en Colombia
@@ -39,13 +44,27 @@
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    // 🔴 IMPORTANTE: pon aquí exactamente el nombre del archivo GeoJSON
-  const geojsonUrl = "Zonas_de_Reserva_Campesina_Constituida.geojson";
+    // URL COMPLETA del GeoJSON en GitHub Pages
+    const geojsonUrl = "https://yalumeru.github.io/visor-leaflet/Zonas_de_Reserva_Campesina_Constituida.geojson";
+
+    console.log("Cargando GeoJSON desde:", geojsonUrl);
 
     fetch(geojsonUrl)
-      .then(r => r.json())
+      .then(response => {
+        console.log("Status GeoJSON:", response.status);
+        return response.json();
+      })
       .then(data => {
         const layer = L.geoJSON(data).addTo(map);
         try {
-          map.fitBounds(la
+          map.fitBounds(layer.getBounds());
+        } catch (e) {
+          console.error("No se pudo ajustar el zoom:", e);
+        }
+      })
+      .catch(err => console.error("Error cargando GeoJSON:", err));
+  </script>
+</body>
+</html>
+
 
