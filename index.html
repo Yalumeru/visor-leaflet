@@ -22,7 +22,8 @@
       height: 100%;
       width: 100%;
     }
-    .legend, .filters-control {
+    /* Estilos de la leyenda */
+    .legend {
       background: white;
       padding: 6px 8px;
       font: 12px/14px Arial, Helvetica, sans-serif;
@@ -39,14 +40,7 @@
       float: left;
       margin-right: 6px;
       opacity: 0.8;
-    }
-    .filters-control label {
-      display: block;
-      margin-bottom: 4px;
-    }
-    .filters-control select {
-      width: 150px;
-      margin-bottom: 4px;
+      border: 2px solid #000;
     }
   </style>
 </head>
@@ -61,21 +55,13 @@
   ></script>
 
   <script>
-    // =============================
-    //  CONFIGURA ESTOS NOMBRES 🔴
-    // =============================
-    // Cambia "DPTO" y "MUNICIPIO" por los nombres REALES
-    // de los campos en tu GeoJSON (respeta mayúsculas/minúsculas)
-    const FIELD_DEPTO = "DPTO";
-    const FIELD_MPIO  = "MUNICIPIO";
-
     // --- Mapas base ---
     var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     });
 
-    // 🔧 Corregido: Esri usa {z}/{y}/{x}
+    // Corregido: ESRI debe ir con {z}/{y}/{x}
     var esriSat = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       {
@@ -88,7 +74,7 @@
       'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
       {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
       }
     );
 
@@ -99,192 +85,106 @@
       layers: [osm]
     });
 
+    // Conjunto de mapas base para el control
     var baseLayers = {
       "OSM estándar": osm,
-      "Esri Satélite": esriSat,
+      "Esri satélite": esriSat,
       "Carto claro": cartoLight
     };
 
+    // Overlays (capas temáticas) – de momento solo ZRC
     var overlays = {};
+
+    // Control de capas (mapas base + overlays)
     var layerControl = L.control.layers(baseLayers, overlays, {
       collapsed: false
     }).addTo(map);
 
-    // Capa de ZRC como LayerGroup (para poder vaciar/llenar con filtros)
-    var zrcLayer = L.layerGroup().addTo(map);
-    layerControl.addOverlay(zrcLayer, "ZRC constituidas");
-
-    // ==================================
-    //  Control de filtros (dpto / mpio)
-    // ==================================
-    var filtersControl = L.control({ position: 'topleft' });
-
-    filtersControl.onAdd = function(map) {
-      var div = L.DomUtil.create('div', 'filters-control');
-      div.innerHTML =
-        '<strong>Filtros</strong>' +
-        '<label>Departamento:<br>' +
-        '<select id="filtro-depto">' +
-        '<option value="__todos__">(Todos)</option>' +
-        '</select></label>' +
-        '<label>Municipio:<br>' +
-        '<select id="filtro-mpio">' +
-        '<option value="__todos__">(Todos)</option>' +
-        '</select></label>';
-
-      // Evita que al hacer scroll/click sobre el control se mueva el mapa
-      L.DomEvent.disableClickPropagation(div);
-      return div;
-    };
-
-    filtersControl.addTo(map);
-
-    var deptoSelect = null;
-    var mpioSelect  = null;
-
-    // =================
-    //  Leyenda dinámica
-    // =================
+    // --- Preparar leyenda dinámica ---
     var legend = L.control({ position: 'bottomright' });
+    var overlayEntries = []; // aquí guardamos capa + HTML de leyenda
 
-    legend.onAdd = function(map) {
+    legend.onAdd = function (map) {
       var div = L.DomUtil.create('div', 'legend');
-      legend._div = div; // guardamos referencia
-      updateLegend();
+      div.innerHTML = '<strong>Leyenda</strong><br><span style="font-size:11px;color:#555;">Sin capas activas</span>';
       return div;
     };
 
     legend.addTo(map);
 
     function updateLegend() {
-      if (!legend._div) return;
+      var div = document.querySelector('.legend');
+      if (!div) return;
 
-      var html = "";
+      var html = '<strong>Leyenda</strong>';
+      var content = '';
 
-      // Solo mostramos leyenda si la capa está encendida y tiene features
-      if (map.hasLayer(zrcLayer) && zrcLayer.getLayers().length > 0) {
-        html += '<strong>Leyenda</strong><br>';
-        html += '<i style="background:#fb9a99; border:2px solid #e31a1c;"></i> ZRC constituidas<br>';
+      overlayEntries.forEach(function(entry) {
+        if (map.hasLayer(entry.layer)) {
+          content += entry.html;
+        }
+      });
+
+      if (content === '') {
+        html += '<br><span style="font-size:11px;color:#555;">Sin capas activas</span>';
+      } else {
+        html += '<br>' + content;
       }
 
-      legend._div.innerHTML = html;
-      legend._div.style.display = html ? 'block' : 'none';
+      div.innerHTML = html;
     }
 
-    // Actualizar leyenda cuando se enciende/apaga una overlay
-    map.on('overlayadd overlayremove', function(e) {
-      updateLegend();
-    });
+    // Actualizar leyenda cuando se enciende/apaga una capa desde el control
+    map.on('overlayadd', updateLegend);
+    map.on('overlayremove', updateLegend);
 
-    // ==========
-    //  Cargar ZRC
-    // ==========
+    // --- Capa GeoJSON: Zonas de Reserva Campesina ---
     const geojsonUrl = "https://yalumeru.github.io/visor-leaflet/Zonas_de_Reserva_Campesina_Constituida.geojson";
-
-    var allZrcData = null;
 
     fetch(geojsonUrl)
       .then(response => response.json())
       .then(data => {
-        allZrcData = data;
+        var zrcLayer = L.geoJSON(data, {
+          style: function (feature) {
+            return {
+              color: '#e31a1c',      // borde rojo
+              weight: 2,
+              fillColor: '#fb9a99',  // relleno rosado
+              fillOpacity: 0.4
+            };
+          },
+          onEachFeature: function (feature, layer) {
+            // Popup genérico con todos los atributos
+            var props = feature.properties || {};
+            var html = '<b>Información de la zona</b><br>';
+            for (var key in props) {
+              if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+              var value = props[key];
+              if (value === null || value === undefined || value === '') continue;
+              html += '<strong>' + key + ':</strong> ' + value + '<br>';
+            }
+            layer.bindPopup(html);
+          }
+        }).addTo(map);
 
-        // Inicializar referencias a los selects
-        deptoSelect = document.getElementById('filtro-depto');
-        mpioSelect  = document.getElementById('filtro-mpio');
+        // Añadir al control de capas como overlay
+        layerControl.addOverlay(zrcLayer, "ZRC constituidas");
 
-        // Llenar listas de valores únicos
-        rellenarFiltros(allZrcData);
-
-        // Dibujar capa inicial sin filtros
-        actualizarCapaZRC();
-
-        // Eventos de cambio de filtro
-        deptoSelect.addEventListener('change', function() {
-          actualizarCapaZRC();
+        // Registrar esta capa en la leyenda dinámica
+        overlayEntries.push({
+          layer: zrcLayer,
+          html: '<i style="background:#fb9a99; border-color:#e31a1c;"></i> ZRC constituida'
         });
-        mpioSelect.addEventListener('change', function() {
-          actualizarCapaZRC();
-        });
-      })
-      .catch(err => console.error("Error cargando GeoJSON:", err));
 
-    function getValoresUnicos(data, campo) {
-      var set = new Set();
-      if (!data || !data.features) return [];
-      data.features.forEach(function(feat) {
-        var props = feat.properties || {};
-        var val = props[campo];
-        if (val !== undefined && val !== null && val !== "") {
-          set.add(String(val));
-        }
-      });
-      return Array.from(set).sort();
-    }
-
-    function rellenarSelect(select, valores) {
-      if (!select) return;
-      // dejamos la opción "(Todos)" y agregamos el resto
-      valores.forEach(function(v) {
-        var opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        select.appendChild(opt);
-      });
-    }
-
-    function rellenarFiltros(data) {
-      var deptos = getValoresUnicos(data, FIELD_DEPTO);
-      var mpios  = getValoresUnicos(data, FIELD_MPIO);
-
-      rellenarSelect(deptoSelect, deptos);
-      rellenarSelect(mpioSelect, mpios);
-    }
-
-    function actualizarCapaZRC() {
-      if (!allZrcData) return;
-
-      // Limpiar capa actual
-      zrcLayer.clearLayers();
-
-      var selDepto = deptoSelect ? deptoSelect.value : "__todos__";
-      var selMpio  = mpioSelect  ? mpioSelect.value  : "__todos__";
-
-      var hayFeatures = false;
-
-      L.geoJSON(allZrcData, {
-        filter: function(feature) {
-          var props = feature.properties || {};
-          var okDepto =
-            selDepto === "__todos__" || String(props[FIELD_DEPTO]) === selDepto;
-          var okMpio =
-            selMpio === "__todos__" || String(props[FIELD_MPIO]) === selMpio;
-          return okDepto && okMpio;
-        },
-        style: function(feature) {
-          return {
-            color: '#e31a1c',      // borde rojo
-            weight: 2,
-            fillColor: '#fb9a99',  // relleno rosado
-            fillOpacity: 0.4
-          };
-        }
-      }).eachLayer(function(layer) {
-        hayFeatures = true;
-        zrcLayer.addLayer(layer);
-      });
-
-      // Ajustar zoom si hay algo que mostrar
-      if (hayFeatures) {
+        // Ajustar zoom y actualizar leyenda
         try {
           map.fitBounds(zrcLayer.getBounds());
         } catch (e) {
           console.error("No se pudo ajustar el zoom:", e);
         }
-      }
-
-      // Actualizar leyenda según si hay capa visible
-      updateLegend();
-    }
+        updateLegend();
+      })
+      .catch(err => console.error("Error cargando GeoJSON:", err));
   </script>
 </body>
 </html>
