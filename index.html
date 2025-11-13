@@ -2,48 +2,49 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa Leaflet con GeoJSON externo</title>
+  <title>Mapa Leaflet con GeoJSON</title>
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin=""/>
+
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
-    #map { height: 100%; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    #map {
+      height: 100%;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script>
-    // Crear mapa base
-    var map = L.map('map').setView([4.5, -74.1], 6); // Colombia aprox
 
+  <script>
+    // Crear mapa centrado en Colombia
+    var map = L.map('map').setView([4.5, -74.1], 6);
+
+    // Capa base OSM
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    // Lista de capas GeoJSON que quieres cargar
-const geojsonUrls = [
-  "https://drive.google.com/uc?export=download&id=1hlYbzXC7YRbso-r6hHm4bNIzM6ubF9wk"
-];
+    // 🔴 IMPORTANTE: pon aquí exactamente el nombre del archivo GeoJSON
+    const geojsonUrl = "NOMBRE_DEL_ARCHIVO_GEOJSON";
 
-
-
-    geojsonUrls.forEach(url => {
-      fetch(url)
-        .then(r => r.json())
-        .then(data => {
-          const layer = L.geoJSON(data).addTo(map);
-          // Ajustar el zoom a la capa
-          try { map.fitBounds(layer.getBounds()); } catch(e) {}
-        })
-        .catch(err => console.error("Error cargando GeoJSON:", url, err));
-    });
-  </script>
-</body>
-</html>
+    fetch(geojsonUrl)
+      .then(r => r.json())
+      .then(data => {
+        const layer = L.geoJSON(data).addTo(map);
+        try {
+          map.fitBounds(la
