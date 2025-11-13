@@ -22,6 +22,25 @@
       height: 100%;
       width: 100%;
     }
+    /* Estilos de la leyenda */
+    .legend {
+      background: white;
+      padding: 6px 8px;
+      font: 12px/14px Arial, Helvetica, sans-serif;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+    .legend strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .legend i {
+      width: 12px;
+      height: 12px;
+      float: left;
+      margin-right: 6px;
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
@@ -35,36 +54,90 @@
   ></script>
 
   <script>
-    // Crear mapa centrado en Colombia
-    var map = L.map('map').setView([4.5, -74.1], 6);
-
-    // Capa base OSM
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // --- Mapas base ---
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+
+    var esriSat = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}',
+      {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+      }
+    );
+
+    var cartoLight = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+      }
+    );
+
+    // Crear mapa centrado en Colombia con OSM por defecto
+    var map = L.map('map', {
+      center: [4.5, -74.1],
+      zoom: 6,
+      layers: [osm]
+    });
+
+    // Conjunto de mapas base para el control
+    var baseLayers = {
+      "OSM estándar": osm,
+      "Esri Satélite": esriSat,
+      "Carto claro": cartoLight
+    };
+
+    // Overlays (capas temáticas) – inicialmente vacío
+    var overlays = {};
+
+    // Control de capas (mapas base + overlays)
+    var layerControl = L.control.layers(baseLayers, overlays, {
+      collapsed: false
     }).addTo(map);
 
-    // URL COMPLETA del GeoJSON en GitHub Pages
+    // --- Capa GeoJSON: Zonas de Reserva Campesina ---
     const geojsonUrl = "https://yalumeru.github.io/visor-leaflet/Zonas_de_Reserva_Campesina_Constituida.geojson";
 
-    console.log("Cargando GeoJSON desde:", geojsonUrl);
-
     fetch(geojsonUrl)
-      .then(response => {
-        console.log("Status GeoJSON:", response.status);
-        return response.json();
-      })
+      .then(response => response.json())
       .then(data => {
-        const layer = L.geoJSON(data).addTo(map);
+        var zrcLayer = L.geoJSON(data, {
+          style: function (feature) {
+            return {
+              color: '#e31a1c',      // borde rojo
+              weight: 2,
+              fillColor: '#fb9a99',  // relleno rosado
+              fillOpacity: 0.4
+            };
+          }
+        }).addTo(map);
+
+        // Añadir al control de capas como overlay
+        layerControl.addOverlay(zrcLayer, "ZRC constituidas");
+
+        // Ajustar el zoom a la capa
         try {
-          map.fitBounds(layer.getBounds());
+          map.fitBounds(zrcLayer.getBounds());
         } catch (e) {
           console.error("No se pudo ajustar el zoom:", e);
         }
       })
       .catch(err => console.error("Error cargando GeoJSON:", err));
+
+    // --- Leyenda ---
+    var legend = L.control({ position: 'bottomright' });
+
+    legend.onAdd = function (map) {
+      var div = L.DomUtil.create('div', 'legend');
+      div.innerHTML += '<strong>Leyenda</strong>';
+      div.innerHTML += '<i style="background:#fb9a99; border:2px solid #e31a1c;"></i> Zona de Reserva Campesina constituida<br>';
+      return div;
+    };
+
+    legend.addTo(map);
   </script>
 </body>
 </html>
-
-
