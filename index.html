@@ -40,7 +40,7 @@
     }).addTo(map);
 
     // 🔴 IMPORTANTE: pon aquí exactamente el nombre del archivo GeoJSON
-    const geojsonUrl = "NOMBRE_DEL_ARCHIVO_GEOJSON";
+  const geojsonUrl = "Zonas_de_Reserva_Campesina_Constituida.geojson";
 
     fetch(geojsonUrl)
       .then(r => r.json())
@@ -48,3 +48,4 @@
         const layer = L.geoJSON(data).addTo(map);
         try {
           map.fitBounds(la
+
